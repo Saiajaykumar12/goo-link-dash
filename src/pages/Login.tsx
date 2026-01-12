@@ -20,11 +20,14 @@ const Login = () => {
       });
   }, [navigate]);
 
+<<<<<<< HEAD
   const handleGoogleLogin = () => {
     setLoading(true);
     window.location.href = "http://localhost:4000/auth/google";
   };
 
+=======
+>>>>>>> 1638757d8d92251e9b1ce1de95d8fd6aa80943e3
   return (
     <div className="min-h-screen gradient-subtle flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -40,6 +43,7 @@ const Login = () => {
             </p>
           </div>
 
+<<<<<<< HEAD
           {/* Google Login Button */}
           <Button
             onClick={handleGoogleLogin}
@@ -68,6 +72,8 @@ const Login = () => {
             {loading ? "Redirecting..." : "Continue with Google"}
           </Button>
 
+=======
+>>>>>>> 1638757d8d92251e9b1ce1de95d8fd6aa80943e3
           {/* Footer */}
           <p className="text-center text-sm text-muted-foreground">
             By continuing, you agree to our Terms of Service
