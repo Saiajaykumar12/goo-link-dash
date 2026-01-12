@@ -1,49 +1,64 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Link2, LogOut, Send, User } from "lucide-react";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 const Dashboard = () => {
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [link, setLink] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!session) {
+    fetch("http://localhost:4000/api/user", {
+      credentials: "include"
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.user) {
           navigate("/");
         } else {
-          setUser(session.user);
+          setUser(data.user);
         }
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        navigate("/");
-      } else {
-        setUser(session.user);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+      });
   }, [navigate]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await fetch("http://localhost:4000/logout", {
+      method: "GET",
+      credentials: "include"
+    });
     navigate("/");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    let formattedLink = link.trim();
+    // Enforce https://
+    if (!/^https:\/\//i.test(formattedLink)) {
+      formattedLink = "https://" + formattedLink.replace(/^https?:\/\//i, "");
+    }
+
+    // Basic URL validation
+    let isValid = true;
+    if (!formattedLink) {
+      isValid = false;
+    } else {
+      try {
+        new URL(formattedLink);
+      } catch {
+        isValid = false;
+      }
+    }
+
+    if (isValid) {
+      window.open(formattedLink, "_blank", "noopener,noreferrer");
+    }
+
     if (!link.trim()) {
       toast({
         title: "Error",
@@ -53,28 +68,25 @@ const Dashboard = () => {
       return;
     }
 
-    // Basic URL validation
-    try {
-      new URL(link);
-    } catch {
+    if (!isValid) {
       toast({
         title: "Invalid URL",
-        description: "Please enter a valid URL including http:// or https://",
+        description: "Please enter a valid URL starting with https://",
         variant: "destructive",
       });
       return;
     }
 
     setIsSubmitting(true);
-    
+
     // Simulate submission (you can add database storage here later)
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    
+
     toast({
       title: "Success!",
       description: "Your link has been submitted successfully",
     });
-    
+
     setLink("");
     setIsSubmitting(false);
   };
