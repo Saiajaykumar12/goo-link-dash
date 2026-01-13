@@ -3,28 +3,58 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Link2, LogOut, Send, User } from "lucide-react";
+import { Link2, LogOut, Send, User, ExternalLink } from "lucide-react";
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  picture: string;
+}
+
+interface LinkItem {
+  id: number;
+  url: string;
+  createdAt: string;
+}
 
 const Dashboard = () => {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [link, setLink] = useState("");
+  const [links, setLinks] = useState<LinkItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
+    // Fetch User
     fetch("http://localhost:4000/api/user", {
       credentials: "include"
     })
       .then(res => res.json())
       .then(data => {
         if (!data.user) {
-          navigate("/");
+          navigate("/login");
         } else {
           setUser(data.user);
+          // Fetch Links only if user exists
+          fetchLinks();
+        }
+      })
+      .catch(() => navigate("/login"));
+  }, [navigate]);
+
+  const fetchLinks = () => {
+    fetch("http://localhost:4000/api/links", {
+      credentials: "include"
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.links) {
+          setLinks(data.links);
         }
       });
-  }, [navigate]);
+  };
 
   const handleLogout = async () => {
     await fetch("http://localhost:4000/logout", {
@@ -38,34 +68,15 @@ const Dashboard = () => {
     e.preventDefault();
 
     let formattedLink = link.trim();
-    // Enforce https://
     if (!/^https:\/\//i.test(formattedLink)) {
       formattedLink = "https://" + formattedLink.replace(/^https?:\/\//i, "");
     }
 
-    // Basic URL validation
     let isValid = true;
-    if (!formattedLink) {
+    try {
+      new URL(formattedLink);
+    } catch {
       isValid = false;
-    } else {
-      try {
-        new URL(formattedLink);
-      } catch {
-        isValid = false;
-      }
-    }
-
-    if (isValid) {
-      window.open(formattedLink, "_blank", "noopener,noreferrer");
-    }
-
-    if (!link.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid link",
-        variant: "destructive",
-      });
-      return;
     }
 
     if (!isValid) {
@@ -79,16 +90,33 @@ const Dashboard = () => {
 
     setIsSubmitting(true);
 
-    // Simulate submission (you can add database storage here later)
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const res = await fetch("http://localhost:4000/api/links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ url: formattedLink })
+      });
 
-    toast({
-      title: "Success!",
-      description: "Your link has been submitted successfully",
-    });
-
-    setLink("");
-    setIsSubmitting(false);
+      if (res.ok) {
+        toast({
+          title: "Success!",
+          description: "Your link has been submitted successfully",
+        });
+        setLink("");
+        fetchLinks(); // Refresh links
+      } else {
+        throw new Error("Failed to submit");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save link. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -102,11 +130,15 @@ const Dashboard = () => {
             </div>
             <span className="text-lg font-semibold text-foreground">LinkDrop</span>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <User className="w-4 h-4" />
-              <span className="hidden sm:inline">{user?.email}</span>
+              {user?.picture ? (
+                <img src={user.picture} alt={user.name} className="w-6 h-6 rounded-full" />
+              ) : (
+                <User className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">{user?.name || user?.email}</span>
             </div>
             <Button
               onClick={handleLogout}
@@ -122,13 +154,13 @@ const Dashboard = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-12">
-        <div className="text-center mb-12">
+      <main className="max-w-4xl mx-auto px-4 py-12 space-y-12">
+        <div className="text-center">
           <h1 className="text-3xl font-bold text-foreground mb-3">
-            Welcome back!
+            Drop your link
           </h1>
           <p className="text-muted-foreground text-lg">
-            Drop your link below to submit it
+            Paste a URL below and submit to your session
           </p>
         </div>
 
@@ -153,9 +185,6 @@ const Dashboard = () => {
                   className="pl-12 h-14 text-base border-2 focus:border-primary/50 transition-colors"
                 />
               </div>
-              <p className="text-sm text-muted-foreground">
-                Paste any valid URL to submit
-              </p>
             </div>
 
             <Button
@@ -176,6 +205,37 @@ const Dashboard = () => {
               )}
             </Button>
           </form>
+        </div>
+
+        {/* Links List */}
+        <div className="max-w-2xl mx-auto space-y-6">
+          <h2 className="text-xl font-semibold text-foreground">Your Links</h2>
+          {links.length === 0 ? (
+            <div className="text-center p-8 bg-card/50 rounded-xl border border-dashed border-border">
+              <p className="text-muted-foreground">No links yet. Add your first one above!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {links.map((linkItem) => (
+                <div key={linkItem.id} className="bg-card p-4 rounded-xl border border-border flex items-center justify-between group hover:border-primary/30 transition-colors">
+                  <div className="flex-1 min-w-0 mr-4">
+                    <p className="text-sm font-medium text-foreground truncate">{linkItem.url}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(linkItem.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <a
+                    href={linkItem.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
     </div>

@@ -1,14 +1,26 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Link2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
+
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Check if user is already authenticated
   useEffect(() => {
+    const queryMode = searchParams.get('mode');
+    if (queryMode === 'signup') setMode('signup');
+
+    // Check session
     fetch("http://localhost:4000/api/user", {
       credentials: "include"
     })
@@ -18,16 +30,50 @@ const Login = () => {
           navigate("/dashboard");
         }
       });
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
-<<<<<<< HEAD
   const handleGoogleLogin = () => {
     setLoading(true);
     window.location.href = "http://localhost:4000/auth/google";
   };
 
-=======
->>>>>>> 1638757d8d92251e9b1ce1de95d8fd6aa80943e3
+  const handleLocalAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const endpoint = mode === 'signup' ? '/auth/signup' : '/auth/login';
+    const body = mode === 'signup' ? { email, password, name } : { email, password };
+
+    try {
+      const res = await fetch(`http://localhost:4000${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        navigate('/dashboard');
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || data.message || "Authentication failed",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen gradient-subtle flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -37,13 +83,69 @@ const Login = () => {
             <div className="mx-auto w-16 h-16 gradient-primary rounded-2xl flex items-center justify-center shadow-lg">
               <Link2 className="w-8 h-8 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">LinkDrop</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              {mode === 'signup' ? 'Create Account' : 'Welcome Back'}
+            </h1>
             <p className="text-muted-foreground">
-              Submit and manage your links effortlessly
+              {mode === 'signup'
+                ? 'Sign up to start sharing links'
+                : 'Sign in to access your dashboard'}
             </p>
           </div>
 
-<<<<<<< HEAD
+          {/* Email/Pass Form */}
+          <form onSubmit={handleLocalAuth} className="space-y-4">
+            {mode === 'signup' && (
+              <div className="space-y-2">
+                <Input
+                  type="text"
+                  placeholder="Full Name"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  required
+                  className="h-12 border-2 focus:border-primary/50"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Input
+                type="email"
+                placeholder="Email Address"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                className="h-12 border-2 focus:border-primary/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                className="h-12 border-2 focus:border-primary/50"
+              />
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full h-12 text-base font-medium gradient-primary hover:opacity-90"
+              disabled={loading}
+            >
+              {loading ? "Processing..." : (mode === 'signup' ? "Sign Up" : "Sign In")}
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-muted" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+            </div>
+          </div>
+
           {/* Google Login Button */}
           <Button
             onClick={handleGoogleLogin}
@@ -69,14 +171,17 @@ const Login = () => {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            {loading ? "Redirecting..." : "Continue with Google"}
+            Google
           </Button>
 
-=======
->>>>>>> 1638757d8d92251e9b1ce1de95d8fd6aa80943e3
-          {/* Footer */}
           <p className="text-center text-sm text-muted-foreground">
-            By continuing, you agree to our Terms of Service
+            {mode === 'signup' ? "Already have an account? " : "Don't have an account? "}
+            <button
+              onClick={() => setMode(mode === 'signup' ? 'login' : 'signup')}
+              className="text-primary hover:underline font-medium"
+            >
+              {mode === 'signup' ? "Sign In" : "Sign Up"}
+            </button>
           </p>
         </div>
       </div>
